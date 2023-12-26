@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iangcarroll/cookiemonster/pkg/monster"
 	"github.com/pkg/errors"
 	"github.com/remeh/sizedwaitgroup"
 	"go.uber.org/multierr"
@@ -461,6 +462,16 @@ func (request *Request) ExecuteWithResults(input *contextargs.Context, dynamicVa
 	return requestErr
 }
 
+var (
+	wl = monster.NewWordlist()
+)
+
+func init() {
+	if err := wl.LoadDefault(); err != nil {
+		panic(fmt.Sprintf("could not load default cookie-monster wordlist: %s", err))
+	}
+}
+
 const drainReqSize = int64(8 * 1024)
 
 var errStopExecution = errors.New("stop execution due to unresolved variables")
@@ -766,6 +777,52 @@ func (request *Request) executeRequest(input *contextargs.Context, generatedRequ
 		}
 		finalEvent := make(output.InternalEvent)
 
+		var cookieMonsterResults []string
+
+		// If we have cookie-monster attribute, try to run cookies
+		// bruteforcing on the request using the response.
+		if request.CookieMonster {
+			checkCookie := func(wl *monster.Wordlist, value string) {
+				c := monster.NewCookie(value)
+
+				if !c.Decode() {
+					return
+				}
+
+				if _, success := c.Unsign(wl, uint64(100)); !success {
+					return
+				}
+
+				_, cookieKey, decoder := c.Result()
+				cookieMonsterResults = append(cookieMonsterResults, fmt.Sprintf("Decoded %s cookie: %s", decoder, cookieKey))
+			}
+
+			cookies := response.resp.Cookies()
+
+			if len(cookies) == 0 {
+				break
+			}
+
+			cookieMap := make(map[string]*http.Cookie)
+			for _, cookie := range cookies {
+				cookieMap[cookie.Name] = cookie
+			}
+
+			for _, cookie := range cookies {
+				value := strings.TrimSpace(cookie.Value)
+				sibling, hasSibling := cookieMap[cookie.Name+".sig"]
+
+				if hasSibling {
+					name := strings.TrimSpace(cookie.Name)
+
+					// Library expects this in session=data^signature form.
+					input := name + "=" + value + "^" + sibling.Value
+					checkCookie(wl, input)
+				}
+				checkCookie(wl, value)
+			}
+		}
+
 		outputEvent := request.responseToDSLMap(response.resp, input.MetaInput.Input, matchedURL, tostring.UnsafeToString(dumpedRequest), tostring.UnsafeToString(response.fullResponse), tostring.UnsafeToString(response.body), tostring.UnsafeToString(response.headers), duration, generatedRequest.meta)
 		// add response fields to template context and merge templatectx variables to output event
 		request.options.AddTemplateVars(input.MetaInput, request.Type(), request.ID, outputEvent)
@@ -787,6 +844,10 @@ func (request *Request) executeRequest(input *contextargs.Context, generatedRequ
 		}
 		for k, v := range outputEvent {
 			finalEvent[k] = v
+		}
+		if len(cookieMonsterResults) > 0 {
+			finalEvent["cookie-monster"] = true
+			finalEvent["cookie-monster-result"] = cookieMonsterResults
 		}
 
 		// Add to history the current request number metadata if asked by the user.

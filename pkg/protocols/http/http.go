@@ -208,6 +208,11 @@ type Request struct {
 	// description: |
 	//  DisablePathAutomerge disables merging target url path with raw request path
 	DisablePathAutomerge bool `yaml:"disable-path-automerge,omitempty" json:"disable-path-automerge,omitempty" jsonschema:"title=disable auto merging of path,description=Disable merging target url path with raw request path"`
+
+	// description: |
+	//   CookieMonster enables cookie monster for the request.
+	//   It will read the cookie values and try to run cookie-monster on it to decode it.
+	CookieMonster bool `yaml:"cookie-monster,omitempty" json:"cookie-monster,omitempty" jsonschema:"title=enable cookie monster,description=Enable cookie monster"`
 }
 
 // Options returns executer options for http request
