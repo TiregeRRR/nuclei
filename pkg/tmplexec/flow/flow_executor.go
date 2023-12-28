@@ -43,8 +43,9 @@ type FlowExecutor struct {
 
 	// javascript runtime reference and compiled program
 	jsVM      *goja.Runtime
-	program   *goja.Program                // compiled js program
-	lastEvent *output.InternalWrappedEvent // contains last event that was emitted
+	program   *goja.Program                  // compiled js program
+	lastEvent *output.InternalWrappedEvent   // contains last event that was emitted
+	events    []*output.InternalWrappedEvent // contains last event that was emitted
 
 	// protocol requests and their callback functions
 	allProtocols   map[string][]protocols.Request
@@ -193,7 +194,9 @@ func (f *FlowExecutor) ExecuteWithResults(ctx *scan.ScanContext) error {
 		return errorutil.NewWithErr(runtimeErr).Msgf("got following errors while executing flow")
 	}
 	// this is where final result is generated/created
-	ctx.LogEvent(f.lastEvent)
+	for _, event := range f.events {
+		ctx.OnResult(event)
+	}
 	if value.Export() != nil {
 		f.results.Store(value.ToBoolean())
 	} else {
