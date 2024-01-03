@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/segmentio/ksuid"
+	"github.com/rs/xid"
 )
 
 type Preprocessor interface {
@@ -57,7 +57,7 @@ func (r *randStrPreprocessor) Process(data []byte) []byte {
 		}
 		foundMap[value] = struct{}{}
 		if strings.EqualFold(value, "randstr") || strings.HasPrefix(value, "randstr_") {
-			data = bytes.ReplaceAll(data, []byte(expression[0]), []byte(ksuid.New().String()))
+			data = bytes.ReplaceAll(data, []byte(expression[0]), []byte(xid.New().String()))
 		}
 	}
 	return data

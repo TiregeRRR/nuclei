@@ -330,6 +330,7 @@ func (p *Page) RunScript(action *Action, out map[string]string) error {
 		if _, err := p.page.EvalOnNewDocument(code); err != nil {
 			return err
 		}
+		return nil
 	}
 	data, err := p.page.Eval(code)
 	if err != nil {
@@ -493,8 +494,8 @@ func (p *Page) WaitLoad(act *Action, out map[string]string /*TODO review unused 
 	// Wait for the window.onload event and also wait for the network requests
 	// to become idle for a maximum duration of 3 seconds. If the requests
 	// do not finish,
-	if err := p.page.WaitLoad(); err != nil {
-		return errors.Wrap(err, "could not wait load event")
+	if err := p.page.Timeout(2 * time.Second).WaitLoad(); err != nil {
+		_ = err
 	}
 	_ = p.page.WaitIdle(1 * time.Second)
 	return nil

@@ -136,6 +136,8 @@ func (i *Instance) Run(input *contextargs.Context, actions []*Action, payloads m
 		}
 	}
 
+	_ = proto.PageSetBypassCSP{Enabled: true}.Call(page)
+
 	data, err := createdPage.ExecuteActions(input, actions, payloads)
 	if err != nil {
 		return nil, nil, err
