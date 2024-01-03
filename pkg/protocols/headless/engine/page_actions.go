@@ -276,6 +276,7 @@ func (p *Page) NavigateURL(action *Action, out map[string]string, allvars map[st
 	if target == "" {
 		return errinvalidArguments
 	}
+	referrer := p.getActionArgWithDefaultValues(action, "referrer")
 
 	// if target contains port ex: {{BaseURL}}:8080 use port specified in input
 	input, target = httputil.UpdateURLPortFromPayload(input, target)
@@ -314,9 +315,31 @@ func (p *Page) NavigateURL(action *Action, out map[string]string, allvars map[st
 	// log all navigated requests
 	p.instance.requestLog[action.GetArg("url")] = reqURL.String()
 
-	if err := p.page.Navigate(reqURL.String()); err != nil {
+	if err := p.navigate(reqURL.String(), referrer); err != nil {
 		return errorutil.NewWithErr(err).Msgf("could not navigate to url %s", reqURL.String())
 	}
+	return nil
+}
+
+func (p *Page) navigate(URL, referrer string) error {
+	if referrer == "" {
+		return p.page.Navigate(URL)
+	}
+
+	if URL == "" {
+		URL = "about:blank"
+	}
+
+	_ = p.page.StopLoading()
+
+	res, err := proto.PageNavigate{URL: URL, Referrer: referrer}.Call(p.page)
+	if err != nil {
+		return err
+	}
+	if res.ErrorText != "" {
+		return &rod.ErrNavigation{Reason: res.ErrorText}
+	}
+
 	return nil
 }
 
